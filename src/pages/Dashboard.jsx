@@ -1,11 +1,64 @@
 import { useEffect, useState } from 'react';
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, serverTimestamp, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
-import { HiOutlineShoppingBag, HiOutlineTag, HiOutlineClock } from 'react-icons/hi';
+import { HiOutlineShoppingBag, HiOutlineTag, HiOutlineClock, HiOutlineDatabase } from 'react-icons/hi';
+
+const SEED_CATEGORIES = [
+  { name: 'Silk Sarees', description: 'Premium silk sarees with rich textures and traditional designs' },
+  { name: 'Cotton Sarees', description: 'Lightweight and comfortable cotton sarees for daily wear' },
+  { name: 'Designer Sarees', description: 'Exclusive designer sarees for special occasions' },
+  { name: 'Banarasi Sarees', description: 'Handwoven Banarasi sarees with intricate gold and silver brocade' },
+];
+
+const SEED_PRODUCTS = [
+  {
+    name: 'Kanjivaram Pure Silk Saree',
+    price: 8999,
+    description: 'Exquisite Kanjivaram silk saree with traditional temple border and rich pallu. Handwoven by master artisans from Tamil Nadu.',
+    imageUrls: ['https://images.unsplash.com/photo-1610030469983-98e550d6193c?w=600&h=800&fit=crop'],
+    categoryIndex: 0,
+  },
+  {
+    name: 'Chanderi Cotton Saree',
+    price: 3499,
+    description: 'Elegant Chanderi cotton saree with delicate zari work. Perfect for both casual and semi-formal occasions.',
+    imageUrls: ['https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=600&h=800&fit=crop'],
+    categoryIndex: 1,
+  },
+  {
+    name: 'Royal Blue Designer Saree',
+    price: 12500,
+    description: 'Stunning royal blue designer saree with hand-embroidered threadwork and sequin detailing. A showstopper for weddings.',
+    imageUrls: ['https://images.unsplash.com/photo-1594040226829-7f251ab46d80?w=600&h=800&fit=crop'],
+    categoryIndex: 2,
+  },
+  {
+    name: 'Banarasi Brocade Saree',
+    price: 15000,
+    description: 'Authentic Banarasi saree with gold brocade work. Features intricate floral motifs woven by skilled artisans from Varanasi.',
+    imageUrls: ['https://images.unsplash.com/photo-1617627143750-d86bc21e42bb?w=600&h=800&fit=crop'],
+    categoryIndex: 3,
+  },
+  {
+    name: 'Printed Cotton Daily Wear',
+    price: 1299,
+    description: 'Comfortable printed cotton saree ideal for daily wear. Soft fabric with vibrant floral patterns.',
+    imageUrls: ['https://images.unsplash.com/photo-1614886137944-5f3baa0d2a7f?w=600&h=800&fit=crop'],
+    categoryIndex: 1,
+  },
+  {
+    name: 'Embroidered Georgette Saree',
+    price: 6999,
+    description: 'Lightweight georgette saree with beautiful machine embroidery. Comes with a matching blouse piece.',
+    imageUrls: ['https://images.unsplash.com/photo-1604830550433-79a3ccc27ed3?w=600&h=800&fit=crop'],
+    categoryIndex: 2,
+  },
+];
 
 export default function Dashboard() {
   const [stats, setStats] = useState({ products: 0, categories: 0 });
   const [recentProducts, setRecentProducts] = useState([]);
+  const [seeding, setSeeding] = useState(false);
 
   useEffect(() => {
     const unsubProducts = onSnapshot(collection(db, 'products'), (snap) => {
@@ -27,6 +80,50 @@ export default function Dashboard() {
     };
   }, []);
 
+  const handleSeedData = async () => {
+    if (!window.confirm('This will add sample categories and products to your store. Continue?')) return;
+    setSeeding(true);
+
+    try {
+      // Check if data already exists
+      const existingCats = await getDocs(collection(db, 'categories'));
+      if (existingCats.size > 0) {
+        alert('Data already exists! Delete existing data first if you want to re-seed.');
+        setSeeding(false);
+        return;
+      }
+
+      // Add categories and capture their IDs
+      const categoryIds = [];
+      for (const cat of SEED_CATEGORIES) {
+        const docRef = await addDoc(collection(db, 'categories'), {
+          ...cat,
+          createdAt: serverTimestamp(),
+        });
+        categoryIds.push(docRef.id);
+      }
+
+      // Add products with real category IDs
+      for (const product of SEED_PRODUCTS) {
+        await addDoc(collection(db, 'products'), {
+          name: product.name,
+          price: product.price,
+          description: product.description,
+          imageUrls: product.imageUrls,
+          categoryId: categoryIds[product.categoryIndex],
+          createdAt: serverTimestamp(),
+        });
+      }
+
+      alert('Sample data added successfully! 🎉');
+    } catch (err) {
+      console.error('Seed error:', err);
+      alert('Failed to seed data: ' + err.message);
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   const statCards = [
     {
       label: 'Total Products',
@@ -46,9 +143,21 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-500 text-sm mt-1">Overview of your store</p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-500 text-sm mt-1">Overview of your store</p>
+        </div>
+        {stats.products === 0 && stats.categories === 0 && (
+          <button
+            onClick={handleSeedData}
+            disabled={seeding}
+            className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition shadow-sm disabled:opacity-50"
+          >
+            <HiOutlineDatabase className="w-4 h-4" />
+            {seeding ? 'Adding data...' : 'Add Sample Data'}
+          </button>
+        )}
       </div>
 
       {/* Stat Cards */}
@@ -81,7 +190,7 @@ export default function Dashboard() {
           {recentProducts.length === 0 ? (
             <div className="px-6 py-12 text-center text-gray-400">
               <HiOutlineShoppingBag className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-              <p className="text-sm">No products yet. Add your first saree!</p>
+              <p className="text-sm">No products yet. Click "Add Sample Data" above or add sarees manually.</p>
             </div>
           ) : (
             recentProducts.map((product) => (
