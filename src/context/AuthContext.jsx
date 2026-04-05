@@ -13,10 +13,6 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!auth) {
-      setLoading(false);
-      return;
-    }
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
@@ -25,12 +21,10 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = (email, password) => {
-    if (!auth) return Promise.reject(new Error('Firebase not configured'));
     return signInWithEmailAndPassword(auth, email, password);
   };
 
   const logout = () => {
-    if (!auth) return Promise.reject(new Error('Firebase not configured'));
     return signOut(auth);
   };
 
